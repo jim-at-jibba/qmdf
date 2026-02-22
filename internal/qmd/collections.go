@@ -214,18 +214,30 @@ func (c *Client) ListContexts() ([]ContextInfo, error) {
 
 // parseContexts parses the text output of `qmd context list`.
 //
-// qmd outputs something like:
+// qmd uses a two-line format per entry:
 //
-//	Configured Contexts
-//	sidekick
-//	  / (root): Work documentation and notes
-//	  /projects: Code and project files
+//	Configured Contexts    ← section header (skipped)
+//	sidekick               ← collection name (skipped)
+//	/ (root)               ← context path
+//	Work documentation and notes  ← description for the path above
+//	/projects
+//	Code and project files
 //
-// Lines with ": " are "path: text" context entries. Single-word lines without
-// ":" are collection-scope headers (skipped). Multi-word lines without ":"
-// are section headers (skipped).
+// Also handles the inline "path: description" format as a fallback.
 func parseContexts(text string) []ContextInfo {
 	var results []ContextInfo
+	var pendingPath string
+
+	flush := func() {
+		if pendingPath != "" {
+			results = append(results, ContextInfo{Path: pendingPath})
+			pendingPath = ""
+		}
+	}
+
+	isPathLine := func(s string) bool {
+		return strings.HasPrefix(s, "/") || strings.HasPrefix(s, "~") || strings.HasPrefix(s, "./")
+	}
 
 	for _, rawLine := range strings.Split(text, "\n") {
 		trimmed := strings.TrimSpace(rawLine)
@@ -233,33 +245,45 @@ func parseContexts(text string) []ContextInfo {
 			continue
 		}
 
-		// Lines with ": " are context entries: "path: description"
-		if idx := strings.Index(trimmed, ": "); idx > 0 {
-			path := strings.TrimSpace(trimmed[:idx])
-			text := strings.TrimSpace(trimmed[idx+2:])
-			if path != "" {
-				results = append(results, ContextInfo{Path: path, Text: text})
-			}
+		// Inline "path: description" on one line
+		if idx := strings.Index(trimmed, ": "); idx > 0 && isPathLine(trimmed) {
+			flush()
+			results = append(results, ContextInfo{
+				Path: strings.TrimSpace(trimmed[:idx]),
+				Text: strings.TrimSpace(trimmed[idx+2:]),
+			})
 			continue
 		}
 
-		// Lines ending in ":" are scope/section headers — skip.
+		// Section/scope headers: end with ":" or are single-word non-path tokens
 		if strings.HasSuffix(trimmed, ":") {
+			flush()
+			continue
+		}
+		if !strings.ContainsAny(trimmed, " \t") && !isPathLine(trimmed) {
+			// Single word, not a path — collection name header
+			flush()
 			continue
 		}
 
-		// Single-word lines (collection names used as scope headers) — skip.
-		if !strings.ContainsAny(trimmed, " \t") {
+		// Path line (starts with /, ~, ./)
+		if isPathLine(trimmed) {
+			flush()
+			pendingPath = trimmed
 			continue
 		}
 
-		// Multi-word line with no colon — only keep if it looks like a filesystem path.
-		// Lines like "Configured Contexts" are section headers and should be skipped.
-		if strings.HasPrefix(trimmed, "/") || strings.HasPrefix(trimmed, "~") || strings.HasPrefix(trimmed, "./") {
-			results = append(results, ContextInfo{Path: trimmed})
+		// Description line following a path
+		if pendingPath != "" {
+			results = append(results, ContextInfo{Path: pendingPath, Text: trimmed})
+			pendingPath = ""
+			continue
 		}
+
+		// Multi-word line with no pending path — section header, skip
 	}
 
+	flush()
 	return results
 }
 

@@ -249,6 +249,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, sendNotification(msg.action+" done"))
 			// Reload the collection list after any mutation
 			cmds = append(cmds, m.loadCollections())
+			// After adding a new collection, automatically reindex so files are indexed.
+			if msg.action == "add" {
+				cmds = append(cmds, sendNotification("Collection added — reindexing…"))
+				cmds = append(cmds, m.runCollectionAction("reindex", func() (string, error) {
+					return m.client.Update(false)
+				}))
+			}
 		}
 
 	// ── Contexts loaded ────────────────────────────────────────────────────

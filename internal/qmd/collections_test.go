@@ -81,7 +81,8 @@ my-notes
 	}
 }
 
-func TestParseContexts_Basic(t *testing.T) {
+func TestParseContexts_InlineFormat(t *testing.T) {
+	// Inline "path: text" on one line
 	input := `Configured Contexts
 sidekick
   / (root): Work documentation and notes
@@ -95,6 +96,27 @@ sidekick
 		t.Errorf("first context wrong: %+v", results[0])
 	}
 	if results[1].Path != "/projects" || results[1].Text != "Code and project files" {
+		t.Errorf("second context wrong: %+v", results[1])
+	}
+}
+
+func TestParseContexts_TwoLineFormat(t *testing.T) {
+	// Actual qmd format: path on one line, text on the next
+	input := `Configured Contexts
+sidekick
+/ (root)
+Work documentation and notes
+/ (root)
+Learning notes and TIL`
+
+	results := parseContexts(input)
+	if len(results) != 2 {
+		t.Fatalf("expected 2 contexts, got %d: %+v", len(results), results)
+	}
+	if results[0].Path != "/ (root)" || results[0].Text != "Work documentation and notes" {
+		t.Errorf("first context wrong: %+v", results[0])
+	}
+	if results[1].Path != "/ (root)" || results[1].Text != "Learning notes and TIL" {
 		t.Errorf("second context wrong: %+v", results[1])
 	}
 }
