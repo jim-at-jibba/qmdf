@@ -63,11 +63,23 @@ func renderTabBar(active ViewMode, width int) string {
 
 // ── Collections view rendering ─────────────────────────────────────────────
 
+// logPaneContentHeight is the number of content lines in the bottom-right log pane.
+const logPaneContentHeight = 3
+
 // renderCollectionsView renders the full collections body (list + detail panes).
+// The right column is split: detail pane on top, log pane on bottom-right.
 func renderCollectionsView(m Model) string {
 	bodyHeight := m.height - 4 // tabBar(1) + border(2) + hintBar(1)
-	if bodyHeight < 2 {
-		bodyHeight = 2
+	if bodyHeight < logPaneContentHeight+7 {
+		bodyHeight = logPaneContentHeight + 7
+	}
+
+	// Log pane: logPaneContentHeight content lines + 2 border = logPaneContentHeight+2 total rows.
+	// Detail pane: bodyHeight - (logPaneContentHeight+2) content lines + 2 border.
+	// Left pane spans full bodyHeight content height.
+	detailContentH := bodyHeight - (logPaneContentHeight + 2)
+	if detailContentH < 2 {
+		detailContentH = 2
 	}
 
 	listW := m.width / 2
@@ -76,10 +88,14 @@ func renderCollectionsView(m Model) string {
 	listContent := renderCollectionList(m.collections, m.collectionCursor, listW, bodyHeight, m.collectionLoading, m.collectionErr)
 	leftPane := paneStyle.Width(listW - 2).Height(bodyHeight).Render(listContent)
 
-	detailContent := renderCollectionDetail(m, detailW, bodyHeight)
-	rightPane := paneStyle.Width(detailW - 2).Height(bodyHeight).Render(detailContent)
+	detailContent := renderCollectionDetail(m, detailW, detailContentH)
+	detailPane := paneStyle.Width(detailW - 2).Height(detailContentH).Render(detailContent)
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightPane)
+	logContent := renderCollectionLog(m, detailW)
+	logPane := paneStyle.Width(detailW - 2).Height(logPaneContentHeight).Render(logContent)
+
+	rightCol := lipgloss.JoinVertical(lipgloss.Left, detailPane, logPane)
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightCol)
 }
 
 // renderCollectionList renders the left pane list of collections.
@@ -198,17 +214,56 @@ func renderCollectionDetail(m Model, width, height int) string {
 		}
 	}
 
-	// Last action output (below contexts)
-	if m.collectionOutput != "" {
-		sb.WriteString("\n")
-		out := truncate(strings.TrimSpace(m.collectionOutput), innerW)
-		if m.collectionErr != nil {
-			sb.WriteString(errorStyle.Render(out) + "\n")
-		} else {
-			sb.WriteString(notifyStyle.Render(out) + "\n")
-		}
+	return sb.String()
+}
+
+// renderCollectionLog renders the bottom-right log pane.
+// Shows a spinner while an operation is running, or the last command's output.
+func renderCollectionLog(m Model, width int) string {
+	innerW := width - 4
+	if innerW < 1 {
+		innerW = 1
 	}
 
+	// Title row: "Output ─────────────────"
+	label := collLogTitleStyle.Render("Output")
+	labelW := lipgloss.Width(label)
+	sepLen := innerW - labelW - 1
+	if sepLen < 0 {
+		sepLen = 0
+	}
+	titleRow := label + " " + collHintStyle.Render(strings.Repeat("─", sepLen))
+
+	if m.collectionLoading {
+		return titleRow + "\n" + collHintStyle.Render(m.spinner.View()+" running…")
+	}
+	if m.collectionOutput == "" {
+		return titleRow + "\n" + collHintStyle.Render("─")
+	}
+
+	lines := strings.Split(strings.TrimSpace(m.collectionOutput), "\n")
+	// logPaneContentHeight includes the title row, so content lines = height - 1
+	maxContent := logPaneContentHeight - 1
+	if maxContent < 1 {
+		maxContent = 1
+	}
+	if len(lines) > maxContent {
+		lines = lines[len(lines)-maxContent:]
+	}
+
+	lineStyle := collDetailValStyle
+	if m.collectionErr != nil {
+		lineStyle = errorStyle
+	}
+
+	var sb strings.Builder
+	sb.WriteString(titleRow + "\n")
+	for i, line := range lines {
+		sb.WriteString(lineStyle.Render(truncate(line, innerW)))
+		if i < len(lines)-1 {
+			sb.WriteByte('\n')
+		}
+	}
 	return sb.String()
 }
 
@@ -462,9 +517,10 @@ func (m *Model) loadContexts() tea.Cmd {
 }
 
 // runCollectionAction runs a collection mutation and returns a tea.Cmd.
+// collectionOutput is intentionally NOT cleared here — it stays visible while
+// the operation runs, replaced only when the new output arrives.
 func (m *Model) runCollectionAction(action string, fn func() (string, error)) tea.Cmd {
 	m.collectionLoading = true
-	m.collectionOutput = ""
 	m.collectionErr = nil
 	return func() tea.Msg {
 		output, err := fn()

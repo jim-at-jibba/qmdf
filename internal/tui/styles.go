@@ -48,8 +48,9 @@ var (
 	collSelectedStyle lipgloss.Style
 	collDetailKeyStyle lipgloss.Style
 	collDetailValStyle lipgloss.Style
-	collPromptStyle   lipgloss.Style
-	collHintStyle     lipgloss.Style
+	collPromptStyle    lipgloss.Style
+	collHintStyle      lipgloss.Style
+	collLogTitleStyle  lipgloss.Style
 )
 
 func init() {
@@ -159,6 +160,10 @@ func buildStyles() {
 
 	collHintStyle = lipgloss.NewStyle().
 		Foreground(colorMuted)
+
+	collLogTitleStyle = lipgloss.NewStyle().
+		Foreground(colorSelected).
+		Bold(true)
 }
 
 // _ prevents snippetStyle from being flagged as unused during linting.
