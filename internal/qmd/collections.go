@@ -305,6 +305,7 @@ func parseContexts(text string) []ContextInfo {
 }
 
 // AddContext runs `qmd context add [path] "text"`.
+// path is a collection-scoped path (e.g. "/" for root, "/subdir"), not a filesystem path.
 func (c *Client) AddContext(path, text string) (string, error) {
 	args := []string{"context", "add"}
 	if path != "" {

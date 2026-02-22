@@ -28,8 +28,7 @@ const (
 	InputAddMask        CollectionInputMode = iota // step 3 of add: file mask
 	InputRenameTo       CollectionInputMode = iota // new name for rename
 	InputConfirmDelete  CollectionInputMode = iota // type name to confirm delete
-	InputContextPath    CollectionInputMode = iota // step 1 of add-context: path
-	InputContextText    CollectionInputMode = iota // step 2 of add-context: text
+	InputContextText    CollectionInputMode = iota // add-context description
 	InputConfirmCtxRm   CollectionInputMode = iota // context path to remove
 )
 
@@ -325,7 +324,10 @@ func (m *Model) handleCollectionKey(msg tea.KeyMsg) []tea.Cmd {
 		}))
 
 	case keyMatches(msg, m.keys.CollContext):
-		m.startCollectionInput(InputContextPath, "Context path (leave empty for global):")
+		if sel := m.selectedCollection(); sel != nil {
+			m.pendingContextPath = "qmd://" + sel.Name
+			m.startCollectionInput(InputContextText, fmt.Sprintf("Context description for %s:", sel.Name))
+		}
 
 	case keyMatches(msg, m.keys.CollContextRm):
 		m.startCollectionInput(InputConfirmCtxRm, "Context path to remove:")
@@ -394,10 +396,6 @@ func (m *Model) handleCollectionInputSubmit() []tea.Cmd {
 			})}
 		}
 		// Wrong name typed — silently cancel
-
-	case InputContextPath:
-		m.pendingContextPath = value
-		m.startCollectionInput(InputContextText, "Context text:")
 
 	case InputContextText:
 		path := m.pendingContextPath
