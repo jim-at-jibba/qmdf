@@ -220,7 +220,7 @@ func (c *Client) Embed(force bool) (string, error) {
 	return runQmd(longOpTimeout, args...)
 }
 
-// ListContexts runs `qmd context list` and returns parsed context info.
+// ListContexts runs `qmd context list` and returns all parsed context info.
 func (c *Client) ListContexts() ([]ContextInfo, error) {
 	out, err := runQmd(collectionTimeout, "context", "list")
 	if err != nil {
@@ -229,31 +229,54 @@ func (c *Client) ListContexts() ([]ContextInfo, error) {
 	return parseContexts(out), nil
 }
 
+// ListContextsForCollection runs `qmd context list` and returns only the
+// contexts belonging to the named collection.
+func (c *Client) ListContextsForCollection(name string) ([]ContextInfo, error) {
+	out, err := runQmd(collectionTimeout, "context", "list")
+	if err != nil {
+		return nil, err
+	}
+	return parseContextsForCollection(out, name), nil
+}
+
 // parseContexts parses the text output of `qmd context list`.
+// It is a thin wrapper around parseContextsForCollection with no filter.
+func parseContexts(text string) []ContextInfo {
+	return parseContextsForCollection(text, "")
+}
+
+// parseContextsForCollection parses `qmd context list` output.
+// When collection is non-empty, only contexts belonging to that collection
+// are returned. Pass "" to return all contexts.
 //
-// qmd uses a two-line format per entry:
+// qmd output format:
 //
 //	Configured Contexts    ← section header (skipped)
-//	sidekick               ← collection name (skipped)
+//	sidekick               ← collection name token
 //	/ (root)               ← context path
-//	Work documentation and notes  ← description for the path above
-//	/projects
-//	Code and project files
+//	Work documentation     ← description (may be a single word — checked FIRST)
 //
 // Also handles the inline "path: description" format as a fallback.
-func parseContexts(text string) []ContextInfo {
+func parseContextsForCollection(text, collection string) []ContextInfo {
 	var results []ContextInfo
 	var pendingPath string
-
-	flush := func() {
-		if pendingPath != "" {
-			results = append(results, ContextInfo{Path: pendingPath})
-			pendingPath = ""
-		}
-	}
+	var currentCollection string
 
 	isPathLine := func(s string) bool {
 		return strings.HasPrefix(s, "/") || strings.HasPrefix(s, "~") || strings.HasPrefix(s, "./")
+	}
+
+	include := func() bool {
+		return collection == "" || currentCollection == collection
+	}
+
+	flush := func() {
+		if pendingPath != "" {
+			if include() {
+				results = append(results, ContextInfo{Path: pendingPath})
+			}
+			pendingPath = ""
+		}
 	}
 
 	for _, rawLine := range strings.Split(text, "\n") {
@@ -265,21 +288,29 @@ func parseContexts(text string) []ContextInfo {
 		// Inline "path: description" on one line
 		if idx := strings.Index(trimmed, ": "); idx > 0 && isPathLine(trimmed) {
 			flush()
-			results = append(results, ContextInfo{
-				Path: strings.TrimSpace(trimmed[:idx]),
-				Text: strings.TrimSpace(trimmed[idx+2:]),
-			})
+			if include() {
+				results = append(results, ContextInfo{
+					Path: strings.TrimSpace(trimmed[:idx]),
+					Text: strings.TrimSpace(trimmed[idx+2:]),
+				})
+			}
 			continue
 		}
 
-		// Section/scope headers: end with ":" or are single-word non-path tokens
+		// Section/scope headers: end with ":"
 		if strings.HasSuffix(trimmed, ":") {
 			flush()
 			continue
 		}
-		if !strings.ContainsAny(trimmed, " \t") && !isPathLine(trimmed) {
-			// Single word, not a path — collection name header
-			flush()
+
+		// Description line following a path — checked BEFORE the single-word
+		// heuristic so that single-word descriptions (e.g. "Stuff") are not
+		// misclassified as collection-name headers.
+		if pendingPath != "" {
+			if include() {
+				results = append(results, ContextInfo{Path: pendingPath, Text: trimmed})
+			}
+			pendingPath = ""
 			continue
 		}
 
@@ -290,10 +321,10 @@ func parseContexts(text string) []ContextInfo {
 			continue
 		}
 
-		// Description line following a path
-		if pendingPath != "" {
-			results = append(results, ContextInfo{Path: pendingPath, Text: trimmed})
-			pendingPath = ""
+		// Single word, not a path — collection name header
+		if !strings.ContainsAny(trimmed, " \t") {
+			flush()
+			currentCollection = trimmed
 			continue
 		}
 

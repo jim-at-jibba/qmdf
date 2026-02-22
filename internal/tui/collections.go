@@ -502,11 +502,15 @@ func (m *Model) loadCollections() tea.Cmd {
 	}
 }
 
-// loadContexts loads the context list asynchronously.
+// loadContexts loads the contexts for the currently selected collection.
 func (m *Model) loadContexts() tea.Cmd {
 	client := m.client
+	collName := ""
+	if sel := m.selectedCollection(); sel != nil {
+		collName = sel.Name
+	}
 	return func() tea.Msg {
-		contexts, err := client.ListContexts()
+		contexts, err := client.ListContextsForCollection(collName)
 		return contextsLoadedMsg{contexts: contexts, err: err}
 	}
 }

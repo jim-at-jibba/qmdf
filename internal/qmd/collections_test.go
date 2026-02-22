@@ -127,3 +127,53 @@ func TestParseContexts_Empty(t *testing.T) {
 		t.Errorf("expected 0 contexts for empty input, got %d", len(results))
 	}
 }
+
+func TestParseContexts_SingleWordDescription(t *testing.T) {
+	// Single-word descriptions must not be misclassified as collection headers
+	input := `Configured Contexts
+personal
+/ (root)
+Stuff`
+
+	results := parseContexts(input)
+	if len(results) != 1 {
+		t.Fatalf("expected 1 context, got %d: %+v", len(results), results)
+	}
+	if results[0].Path != "/ (root)" || results[0].Text != "Stuff" {
+		t.Errorf("context wrong: %+v", results[0])
+	}
+}
+
+func TestParseContextsForCollection_Filters(t *testing.T) {
+	// Multi-collection output: only the requested collection's contexts returned
+	input := `Configured Contexts
+sidekick
+/ (root)
+Work documentation and notes
+learning
+/ (root)
+Learning notes and TIL
+personal
+/ (root)
+Stuff`
+
+	sidekick := parseContextsForCollection(input, "sidekick")
+	if len(sidekick) != 1 || sidekick[0].Text != "Work documentation and notes" {
+		t.Errorf("sidekick filter wrong: %+v", sidekick)
+	}
+
+	learning := parseContextsForCollection(input, "learning")
+	if len(learning) != 1 || learning[0].Text != "Learning notes and TIL" {
+		t.Errorf("learning filter wrong: %+v", learning)
+	}
+
+	personal := parseContextsForCollection(input, "personal")
+	if len(personal) != 1 || personal[0].Text != "Stuff" {
+		t.Errorf("personal filter wrong: %+v", personal)
+	}
+
+	all := parseContextsForCollection(input, "")
+	if len(all) != 3 {
+		t.Errorf("no-filter should return all 3, got %d: %+v", len(all), all)
+	}
+}
