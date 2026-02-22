@@ -1,6 +1,6 @@
 package main
 
-import "github.com/jamesguthriebest/qmdf/cmd"
+import "github.com/jim-at-jibba/qmdf/cmd"
 
 func main() {
 	cmd.Execute()

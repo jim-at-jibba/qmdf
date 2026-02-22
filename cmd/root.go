@@ -8,9 +8,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	"github.com/jamesguthriebest/qmdf/internal/config"
-	"github.com/jamesguthriebest/qmdf/internal/qmd"
-	"github.com/jamesguthriebest/qmdf/internal/tui"
+	"github.com/jim-at-jibba/qmdf/internal/config"
+	"github.com/jim-at-jibba/qmdf/internal/qmd"
+	"github.com/jim-at-jibba/qmdf/internal/tui"
 )
 
 var (

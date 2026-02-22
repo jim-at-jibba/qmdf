@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/jamesguthriebest/qmdf/internal/qmd"
+	"github.com/jim-at-jibba/qmdf/internal/qmd"
 )
 
 // renderStatusBar renders the single-line status bar at the bottom of the Search view.

@@ -1,6 +1,6 @@
 package tui
 
-import "github.com/jamesguthriebest/qmdf/internal/qmd"
+import "github.com/jim-at-jibba/qmdf/internal/qmd"
 
 // collectionsLoadedMsg is sent when the collection list fetch completes.
 type collectionsLoadedMsg struct {

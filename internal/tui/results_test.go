@@ -3,7 +3,7 @@ package tui
 import (
 	"testing"
 
-	"github.com/jamesguthriebest/qmdf/internal/qmd"
+	"github.com/jim-at-jibba/qmdf/internal/qmd"
 )
 
 func TestTruncate(t *testing.T) {

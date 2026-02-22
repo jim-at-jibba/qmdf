@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/jamesguthriebest/qmdf/internal/qmd"
+	"github.com/jim-at-jibba/qmdf/internal/qmd"
 )
 
 // ViewMode selects between the Search and Collections views.

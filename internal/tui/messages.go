@@ -3,7 +3,7 @@ package tui
 import (
 	"time"
 
-	"github.com/jamesguthriebest/qmdf/internal/qmd"
+	"github.com/jim-at-jibba/qmdf/internal/qmd"
 )
 
 // searchResultMsg carries results from a completed qmd search.

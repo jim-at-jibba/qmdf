@@ -16,9 +16,9 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/jamesguthriebest/qmdf/internal/config"
-	"github.com/jamesguthriebest/qmdf/internal/editor"
-	"github.com/jamesguthriebest/qmdf/internal/qmd"
+	"github.com/jim-at-jibba/qmdf/internal/config"
+	"github.com/jim-at-jibba/qmdf/internal/editor"
+	"github.com/jim-at-jibba/qmdf/internal/qmd"
 )
 
 // globalRequestID is a monotonic counter for stale-response detection.
