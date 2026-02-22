@@ -189,6 +189,9 @@ preview_width: 0.55
 
 # Override $EDITOR (e.g. for GUI editors)
 editor: "code --wait"
+
+# Supports env var prefixes for custom configs (e.g. Neovim app names)
+# editor: "NVIM_APPNAME=kick nvim"
 ```
 
 ### Environment variables
@@ -235,6 +238,24 @@ cp "$(qmdf --print)" ~/backup/
 ```
 
 In `--print` mode the TUI runs normally. Pressing `enter` prints the resolved filesystem path to stdout and exits.
+
+---
+
+## Editor
+
+qmdf opens files using `$EDITOR` (falling back to `$VISUAL`, then `nano`). You can override it in the config file with the `editor` key.
+
+The editor string supports:
+- Simple binaries: `nvim`, `vim`, `nano`
+- GUI editors with flags: `code --wait`, `zed --wait`
+- **Environment variable prefixes**: `NVIM_APPNAME=kick nvim` — useful for custom Neovim configs
+
+```yaml
+# ~/.config/qmdf/config.yaml
+editor: "NVIM_APPNAME=kick nvim"
+```
+
+If `$EDITOR` is set to an absolute path that no longer exists (e.g. after reinstalling), qmdf automatically looks up the binary name on `$PATH`.
 
 ---
 

@@ -29,6 +29,10 @@ var (
 //	"qmd://sidekick/knowledge-base/file.md"
 //	→ "/Users/alice/notes/sidekick/knowledge-base/file.md"
 //
+// qmd normalises path segments: lowercase + spaces→hyphens. This function
+// walks the directory tree segment-by-segment doing a fuzzy match so that
+// "software/eslint-complexity" resolves to "Software/Eslint complexity".
+//
 // Returns the input unchanged if it isn't a qmd:// URI.
 // Returns an error if the collection is unknown or the config can't be read.
 func ResolveFilePath(qmdURI string) (string, error) {
@@ -55,7 +59,68 @@ func ResolveFilePath(qmdURI string) (string, error) {
 		return "", fmt.Errorf("collection %q not found in ~/.config/qmd/index.yml", collection)
 	}
 
-	return filepath.Join(root, relativePath), nil
+	// First try the literal join — works when the filesystem matches the URI exactly.
+	literal := filepath.Join(root, relativePath)
+	if _, err := os.Stat(literal); err == nil {
+		return literal, nil
+	}
+
+	// Walk segment-by-segment doing a normalised (case+space) match.
+	resolved, err := resolveNormalisedPath(root, relativePath)
+	if err != nil {
+		// Fall back to literal so the error message shows the attempted path.
+		return literal, nil
+	}
+	return resolved, nil
+}
+
+// normaliseSegment collapses all non-alphanumeric chars into a single hyphen
+// and lowercases. This matches both qmd's URI normalisation and the real
+// filesystem name to the same key, regardless of whether the separator was
+// a space, dot, hyphen, or underscore.
+func normaliseSegment(s string) string {
+	s = strings.ToLower(s)
+	var b strings.Builder
+	lastSep := true // suppress leading hyphen
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			lastSep = false
+		} else if !lastSep {
+			b.WriteByte('-')
+			lastSep = true
+		}
+	}
+	return strings.TrimRight(b.String(), "-")
+}
+
+// resolveNormalisedPath walks from root through each segment of relPath,
+// matching directory entries by their normalised form.
+func resolveNormalisedPath(root, relPath string) (string, error) {
+	segments := strings.Split(relPath, "/")
+	current := root
+
+	for _, seg := range segments {
+		entries, err := os.ReadDir(current)
+		if err != nil {
+			return "", err
+		}
+
+		normalised := normaliseSegment(seg)
+		found := false
+		for _, e := range entries {
+			if normaliseSegment(e.Name()) == normalised {
+				current = filepath.Join(current, e.Name())
+				found = true
+				break
+			}
+		}
+		if !found {
+			return "", fmt.Errorf("no match for %q in %s", seg, current)
+		}
+	}
+
+	return current, nil
 }
 
 // loadCollectionRoots reads ~/.config/qmd/index.yml and returns a map of

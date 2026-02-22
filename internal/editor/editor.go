@@ -30,10 +30,34 @@ func Open(filePath string, line int, editorOverride string) tea.Cmd {
 		editor = "nano"
 	}
 
-	// Resolve the binary (handles e.g. "code --wait" already in $EDITOR)
+	// Parse the editor string. Supports:
+	//   "nvim"
+	//   "code --wait"
+	//   "NVIM_APPNAME=kick nvim"  (env var prefix, like a shell)
 	parts := strings.Fields(editor)
+
+	// Extract leading KEY=VALUE env var pairs.
+	var envPairs []string
+	for len(parts) > 0 && strings.Contains(parts[0], "=") && !strings.HasPrefix(parts[0], "-") {
+		envPairs = append(envPairs, parts[0])
+		parts = parts[1:]
+	}
+	if len(parts) == 0 {
+		parts = []string{"nano"}
+	}
+
 	binary := parts[0]
 	extraArgs := parts[1:]
+
+	// If the binary is an absolute path that doesn't exist, try finding it on $PATH
+	// by its base name. This handles stale $EDITOR paths (e.g. moved nvim installs).
+	if filepath.IsAbs(binary) {
+		if _, err := os.Stat(binary); err != nil {
+			if found, lookErr := exec.LookPath(filepath.Base(binary)); lookErr == nil {
+				binary = found
+			}
+		}
+	}
 
 	// GUI editors detach from the terminal and exit their CLI process immediately.
 	// Inject --wait (or equivalent) so tea.ExecProcess blocks until the file is closed.
@@ -46,6 +70,11 @@ func Open(filePath string, line int, editorOverride string) tea.Cmd {
 	allArgs := append(extraArgs, args...) //nolint:gocritic
 
 	cmd := exec.Command(binary, allArgs...)
+
+	// Apply any env var pairs from the editor string (e.g. NVIM_APPNAME=kick).
+	if len(envPairs) > 0 {
+		cmd.Env = append(os.Environ(), envPairs...)
+	}
 
 	// Open /dev/tty directly so the editor gets its own file descriptor to the
 	// terminal. Using os.Stdin risks a race with bubbletea's internal stdin
