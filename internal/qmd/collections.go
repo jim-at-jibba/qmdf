@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -163,9 +164,25 @@ func parseCollections(text string) []CollectionInfo {
 	return results
 }
 
+// expandHome replaces a leading ~ with the user's home directory.
+// exec.Command does not go through a shell, so ~ is never expanded otherwise.
+func expandHome(path string) string {
+	if path == "~" {
+		if home, err := os.UserHomeDir(); err == nil {
+			return home
+		}
+	}
+	if strings.HasPrefix(path, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return home + path[1:]
+		}
+	}
+	return path
+}
+
 // AddCollection runs `qmd collection add <path> [--name <name>] [--mask <mask>]`.
 func (c *Client) AddCollection(path, name, mask string) (string, error) {
-	args := []string{"collection", "add", path}
+	args := []string{"collection", "add", expandHome(path)}
 	if name != "" {
 		args = append(args, "--name", name)
 	}
