@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:skills.sh)",
+      "Skill(keybindings-help)",
+      "Bash(go mod:*)",
+      "Bash(echo Go not found in common paths:*)",
+      "Bash(source:*)",
+      "Bash(asdf plugin:*)",
+      "Bash(go get:*)"
+    ]
+  }
+}
