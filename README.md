@@ -1,5 +1,8 @@
 # qmdf
 
+[![CI](https://github.com/jim-at-jibba/qmdf/actions/workflows/ci.yml/badge.svg)](https://github.com/jim-at-jibba/qmdf/actions/workflows/ci.yml)
+[![Release](https://github.com/jim-at-jibba/qmdf/actions/workflows/release.yml/badge.svg)](https://github.com/jim-at-jibba/qmdf/releases)
+
 A fast, keyboard-driven TUI for searching and managing [qmd](https://github.com/tobilu/qmd) Markdown collections. Wraps the `qmd` CLI with an interactive two-pane interface: live search results on the left, rendered Markdown preview on the right.
 
 - Single static binary, no runtime dependencies
@@ -12,20 +15,30 @@ A fast, keyboard-driven TUI for searching and managing [qmd](https://github.com/
 
 ## Prerequisites
 
-- **Go 1.25+** — to build from source
 - **[qmd](https://github.com/tobilu/qmd)** — the underlying document index engine
+- **Go 1.25+** — only required to build from source
 
 ---
 
 ## Installation
 
-```bash
-# Build and install to $GOPATH/bin
-make install
+### Pre-built binaries (recommended)
 
-# Or build locally
+Download the latest release for your platform from the [releases page](https://github.com/jim-at-jibba/qmdf/releases).
+
+### go install
+
+```bash
+go install github.com/jim-at-jibba/qmdf@latest
+```
+
+### Build from source
+
+```bash
+git clone https://github.com/jim-at-jibba/qmdf.git
+cd qmdf
 make build          # produces ./qmdf
-go build -o qmdf .  # equivalent
+make install        # installs to $GOPATH/bin
 ```
 
 ### Cross-compile
@@ -236,6 +249,17 @@ make tidy       Tidy go.mod
 make cross      Cross-compile for all platforms into dist/
 make clean      Remove build artefacts
 ```
+
+## Releasing
+
+Releases are automated via GitHub Actions and [GoReleaser](https://goreleaser.com). Tagging a commit publishes pre-built binaries for all platforms to the [releases page](https://github.com/jim-at-jibba/qmdf/releases).
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+GoReleaser builds Linux (amd64/arm64), macOS (amd64/arm64), and Windows (amd64) archives and generates a `checksums.txt`.
 
 ---
 
