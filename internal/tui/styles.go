@@ -41,34 +41,26 @@ var (
 )
 
 func init() {
-	// Safe default (dark) so styles are always non-zero even if InitStyles is
+	// Safe default so styles are always non-zero even if InitStyles is
 	// never called (e.g. in unit tests).
-	InitStyles(true)
+	InitStyles()
 }
 
-// InitStyles must be called once before tea.NewProgram, with the dark/light
-// value pre-detected outside the TUI event loop.
-func InitStyles(isDark bool) {
-	pick := func(dark, light string) lipgloss.Color {
-		if isDark {
-			return lipgloss.Color(dark)
-		}
-		return lipgloss.Color(light)
-	}
+// InitStyles must be called once before tea.NewProgram.
+func InitStyles() {
+	colorPrimary = lipgloss.Color("4")   // Blue
+	colorSecondary = lipgloss.Color("7") // White
+	colorMuted = lipgloss.Color("8")     // Bright Black (gray)
+	colorSelected = lipgloss.Color("12") // Bright Blue
+	colorBorder = lipgloss.Color("8")    // Bright Black
+	colorError = lipgloss.Color("1")     // Red
+	colorSuccess = lipgloss.Color("2")   // Green
+	colorWarning = lipgloss.Color("3")   // Yellow
+	selectedBg = lipgloss.Color("0")     // Black (bg highlight)
 
-	colorPrimary = pick("#7dcfff", "#1a1a2e")
-	colorSecondary = pick("#a9b1d6", "#374151")
-	colorMuted = pick("#565f89", "#9ca3af")
-	colorSelected = pick("#7aa2f7", "#1d4ed8")
-	colorBorder = pick("#3b4261", "#d1d5db")
-	colorError = pick("#f7768e", "#dc2626")
-	colorSuccess = pick("#9ece6a", "#16a34a")
-	colorWarning = pick("#e0af68", "#d97706")
-	selectedBg = pick("#1e3a5f", "#dbeafe")
-
-	modeBadgeSearch = pick("#7aa2f7", "#1d4ed8")
-	modeBadgeVSearch = pick("#bb9af7", "#6d28d9")
-	modeBadgeQuery = pick("#73daca", "#0f766e")
+	modeBadgeSearch = lipgloss.Color("4")  // Blue
+	modeBadgeVSearch = lipgloss.Color("5") // Magenta
+	modeBadgeQuery = lipgloss.Color("6")   // Cyan
 
 	buildStyles()
 }

@@ -105,7 +105,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	// because the OSC terminal query response would be read as keyboard input.
 	lipsRenderer := lipgloss.NewRenderer(os.Stdout)
 	isDark := lipsRenderer.HasDarkBackground()
-	tui.InitStyles(isDark)
+	tui.InitStyles()
 
 	// Build and run the TUI
 	model := tui.New(cfg, isDark)

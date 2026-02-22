@@ -10,7 +10,9 @@
       "Bash(echo Go not found in common paths:*)",
       "Bash(source:*)",
       "Bash(asdf plugin:*)",
-      "Bash(go get:*)"
+      "Bash(go get:*)",
+      "Bash(sqlite3:*)",
+      "Bash(git add:*)"
     ]
   }
 }
