@@ -78,7 +78,8 @@ type Model struct {
 	height int
 
 	// Modes
-	printMode bool // output path to stdout on Enter, then quit
+	printMode bool   // output path to stdout on Enter, then quit
+	version   string // set at build time via -ldflags
 
 	// ── Collections view ──────────────────────────────────────────────────
 	activeView ViewMode
@@ -102,7 +103,7 @@ type Model struct {
 
 // New creates a new Model with the given config.
 // isDark must be pre-detected before tea.NewProgram is called (see cmd/root.go).
-func New(cfg *config.Config, isDark bool) Model {
+func New(cfg *config.Config, isDark bool, version string) Model {
 	ti := textinput.New()
 	ti.Placeholder = "Search documents…"
 	ti.Focus()
@@ -129,6 +130,7 @@ func New(cfg *config.Config, isDark bool) Model {
 		previewCache: newPreviewCache(),
 		printMode:    cfg.PrintMode,
 		isDark:       isDark,
+		version:      version,
 		inputField:   newInputField(),
 	}
 }
@@ -471,10 +473,17 @@ func (m Model) View() string {
 		list := renderResultList(m.results, m.selected, listW, bodyHeight, m.loading, m.lastQuery)
 		leftPane := paneStyle.Width(listW - 2).Height(bodyHeight).Render(list)
 
-		previewContent := m.viewport.View()
-		rightPane := activePaneStyle.Width(previewW - 2).Height(bodyHeight).Render(previewContent)
+		// Split right column: preview pane (top) + info box (bottom-right).
+		// infoBoxContentHeight rows of content + 2 border rows = infoBoxContentHeight+2 total.
+		previewContentH := bodyHeight - (infoBoxContentHeight + 2)
+		if previewContentH < 1 {
+			previewContentH = 1
+		}
+		previewPane := activePaneStyle.Width(previewW - 2).Height(previewContentH).Render(m.viewport.View())
+		infoPane := paneStyle.Width(previewW - 2).Height(infoBoxContentHeight).Render(renderSearchInfoBox(m, previewW))
+		rightCol := lipgloss.JoinVertical(lipgloss.Left, previewPane, infoPane)
 
-		body := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightPane)
+		body := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightCol)
 		status := renderStatusBar(m.mode, m.cfg.Collection, m.resultCount, m.elapsedMs, m.loading, m.notification, m.width, m.showHelp, m.shortHint())
 
 		if m.showHelp {
@@ -504,7 +513,12 @@ func (m *Model) recalculateLayout() Model {
 	if bodyHeight < 1 {
 		bodyHeight = 1
 	}
-	m.viewport = viewport.New(previewW-4, bodyHeight-2)
+	// Preview pane is the right column minus the info box (content + 2 border rows).
+	previewContentH := bodyHeight - (infoBoxContentHeight + 2)
+	if previewContentH < 1 {
+		previewContentH = 1
+	}
+	m.viewport = viewport.New(previewW-4, previewContentH-2)
 	if content, ok := m.previewCache.get(m.previewDocID); ok {
 		m.viewport.SetContent(m.renderMarkdown(content, previewW-4))
 	}

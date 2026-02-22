@@ -51,6 +51,7 @@ var (
 	collPromptStyle    lipgloss.Style
 	collHintStyle      lipgloss.Style
 	collLogTitleStyle  lipgloss.Style
+	infoLabelStyle     lipgloss.Style
 )
 
 func init() {
@@ -164,6 +165,11 @@ func buildStyles() {
 	collLogTitleStyle = lipgloss.NewStyle().
 		Foreground(colorSelected).
 		Bold(true)
+
+	infoLabelStyle = lipgloss.NewStyle().
+		Foreground(colorWarning).
+		Bold(true).
+		Width(10)
 }
 
 // _ prevents snippetStyle from being flagged as unused during linting.

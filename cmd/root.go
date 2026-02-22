@@ -21,6 +21,8 @@ var (
 	flagNoPreview  bool
 	flagPrint      bool
 	flagNoQmdCheck bool
+
+	appVersion string // set by Execute()
 )
 
 var rootCmd = &cobra.Command{
@@ -41,7 +43,9 @@ Install qmd first:  npm install -g @tobilu/qmd`,
 }
 
 // Execute runs the root command.
-func Execute() {
+func Execute(version string) {
+	appVersion = version
+	rootCmd.Version = version
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
@@ -108,7 +112,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	tui.InitStyles()
 
 	// Build and run the TUI
-	model := tui.New(cfg, isDark)
+	model := tui.New(cfg, isDark, appVersion)
 
 	opts := []tea.ProgramOption{tea.WithAltScreen()}
 	if flagPrint {
