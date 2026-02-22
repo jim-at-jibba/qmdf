@@ -28,8 +28,7 @@ const (
 	InputAddMask        CollectionInputMode = iota // step 3 of add: file mask
 	InputRenameTo       CollectionInputMode = iota // new name for rename
 	InputConfirmDelete  CollectionInputMode = iota // type name to confirm delete
-	InputContextText    CollectionInputMode = iota // add-context description
-	InputConfirmCtxRm   CollectionInputMode = iota // context path to remove
+	InputContextText CollectionInputMode = iota // add-context description
 )
 
 // ── Tab bar ────────────────────────────────────────────────────────────────
@@ -385,7 +384,12 @@ func (m *Model) handleCollectionKey(msg tea.KeyMsg) []tea.Cmd {
 		}
 
 	case keyMatches(msg, m.keys.CollContextRm):
-		m.startCollectionInput(InputConfirmCtxRm, "Context path to remove:")
+		if sel := m.selectedCollection(); sel != nil {
+			path := "qmd://" + sel.Name
+			cmds = append(cmds, m.runCollectionAction("remove-context", func() (string, error) {
+				return m.client.RemoveContext(path)
+			}))
+		}
 
 	case msg.Type == tea.KeyEnter:
 		// Switch to Search view with the selected collection active
@@ -464,15 +468,6 @@ func (m *Model) handleCollectionInputSubmit() []tea.Cmd {
 			return m.client.AddContext(path, text)
 		})}
 
-	case InputConfirmCtxRm:
-		path := value
-		m.cancelCollectionInput()
-		if path == "" {
-			return nil
-		}
-		return []tea.Cmd{m.runCollectionAction("remove-context", func() (string, error) {
-			return m.client.RemoveContext(path)
-		})}
 	}
 
 	return nil
