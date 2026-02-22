@@ -76,8 +76,8 @@ func TestRenderResultList_NoResults(t *testing.T) {
 
 func TestRenderResultList_WithResults(t *testing.T) {
 	results := []qmd.SearchResult{
-		{DocID: "a1", FilePath: "/notes/one.md", Score: 0.9, Title: "One"},
-		{DocID: "b2", FilePath: "/notes/two.md", Score: 0.7, Title: "Two"},
+		{DocID: "#a1b2c3", File: "qmd://col/notes/one.md", Score: 0.9, Title: "One"},
+		{DocID: "#d4e5f6", File: "qmd://col/notes/two.md", Score: 0.7, Title: "Two"},
 	}
 	out := renderResultList(results, 0, 60, 20, false, "one")
 	if out == "" {

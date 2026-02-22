@@ -31,12 +31,12 @@ func renderResultList(results []qmd.SearchResult, selected, width, height int, l
 
 		title := r.Title
 		if title == "" {
-			title = filepath.Base(r.FilePath)
+			title = filepath.Base(r.DisplayPath())
 		}
 
 		// Truncate to fit
 		title = truncate(title, innerWidth-2)
-		path := truncate(r.FilePath, innerWidth-2)
+		path := truncate(r.DisplayPath(), innerWidth-2)
 
 		if i == selected {
 			titleLine := selectedTitleStyle.Render("▸ " + title)

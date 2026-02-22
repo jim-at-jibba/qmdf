@@ -6,9 +6,9 @@ func TestBuildSearchArgs_BasicSearch(t *testing.T) {
 	c := &Client{}
 	args := c.buildSearchArgs("hello world", ModeSearch)
 
-	// Must contain "search" as first arg and "--json"
+	// First arg must be the subcommand "search", not a flag
 	if args[0] != "search" {
-		t.Errorf("expected first arg 'search', got %q", args[0])
+		t.Errorf("expected subcommand 'search', got %q", args[0])
 	}
 	if !containsArg(args, "--json") {
 		t.Error("expected --json flag")
@@ -16,14 +16,39 @@ func TestBuildSearchArgs_BasicSearch(t *testing.T) {
 	if !containsArg(args, "hello world") {
 		t.Error("expected query in args")
 	}
+	// Must NOT use --mode flag
+	if containsArg(args, "--mode") {
+		t.Error("should not use --mode flag; mode is a subcommand")
+	}
+}
+
+func TestBuildSearchArgs_VSearch(t *testing.T) {
+	c := &Client{}
+	args := c.buildSearchArgs("foo", ModeVSearch)
+
+	if args[0] != "vsearch" {
+		t.Errorf("expected subcommand 'vsearch', got %q", args[0])
+	}
+	if containsArg(args, "--mode") {
+		t.Error("should not use --mode flag")
+	}
+}
+
+func TestBuildSearchArgs_Query(t *testing.T) {
+	c := &Client{}
+	args := c.buildSearchArgs("foo", ModeQuery)
+
+	if args[0] != "query" {
+		t.Errorf("expected subcommand 'query', got %q", args[0])
+	}
 }
 
 func TestBuildSearchArgs_WithCollection(t *testing.T) {
 	c := &Client{Collection: "mynotes"}
 	args := c.buildSearchArgs("foo", ModeSearch)
 
-	if !containsConsecutive(args, "--collection", "mynotes") {
-		t.Error("expected --collection mynotes in args")
+	if !containsConsecutive(args, "-c", "mynotes") {
+		t.Errorf("expected -c mynotes in args, got %v", args)
 	}
 }
 
@@ -31,36 +56,12 @@ func TestBuildSearchArgs_WithResults(t *testing.T) {
 	c := &Client{Results: 20}
 	args := c.buildSearchArgs("foo", ModeSearch)
 
-	if !containsConsecutive(args, "--results", "20") {
-		t.Error("expected --results 20 in args")
+	// Results flag is -n, not --results
+	if !containsConsecutive(args, "-n", "20") {
+		t.Errorf("expected -n 20 in args, got %v", args)
 	}
-}
-
-func TestBuildSearchArgs_ModeVSearch(t *testing.T) {
-	c := &Client{}
-	args := c.buildSearchArgs("foo", ModeVSearch)
-
-	if !containsConsecutive(args, "--mode", "vsearch") {
-		t.Error("expected --mode vsearch in args")
-	}
-}
-
-func TestBuildSearchArgs_ModeQuery(t *testing.T) {
-	c := &Client{}
-	args := c.buildSearchArgs("foo", ModeQuery)
-
-	if !containsConsecutive(args, "--mode", "query") {
-		t.Error("expected --mode query in args")
-	}
-}
-
-func TestBuildSearchArgs_ModeSearchNoModeFlag(t *testing.T) {
-	// Default search mode should NOT add --mode flag
-	c := &Client{}
-	args := c.buildSearchArgs("foo", ModeSearch)
-
-	if containsArg(args, "--mode") {
-		t.Error("search mode should not add --mode flag")
+	if containsArg(args, "--results") {
+		t.Error("should use -n not --results")
 	}
 }
 
@@ -74,8 +75,11 @@ func TestBuildSearchArgs_MinScore(t *testing.T) {
 }
 
 func TestSearchTimeout(t *testing.T) {
-	if d := searchTimeout(ModeQuery); d.Seconds() < 15 {
-		t.Errorf("query mode timeout should be at least 15s, got %v", d)
+	if d := searchTimeout(ModeQuery); d.Seconds() < 30 {
+		t.Errorf("query mode timeout should be >= 30s, got %v", d)
+	}
+	if d := searchTimeout(ModeVSearch); d.Seconds() < 15 {
+		t.Errorf("vsearch mode timeout should be >= 15s, got %v", d)
 	}
 	if d := searchTimeout(ModeSearch); d.Seconds() > 20 {
 		t.Errorf("search mode timeout should be ≤20s, got %v", d)

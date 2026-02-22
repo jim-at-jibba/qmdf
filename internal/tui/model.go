@@ -162,7 +162,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.selected = 0
 
 		if len(m.results) > 0 {
-			cmds = append(cmds, m.fetchPreview(m.results[0].DocID))
+			cmds = append(cmds, m.fetchPreview(m.results[0]))
 		} else {
 			m.previewDocID = ""
 			m.previewReady = false
@@ -187,6 +187,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case editor.ClosedMsg:
 		if msg.Err != nil {
 			m.err = msg.Err
+			cmds = append(cmds, sendNotification("Editor error: "+msg.Err.Error()))
 		}
 
 	// ── Internal notification ──────────────────────────────────────────────
@@ -265,23 +266,37 @@ func (m *Model) handleKey(msg tea.KeyMsg) []tea.Cmd {
 	// ── Open editor ───────────────────────────────────────────────────────
 	case keyMatches(msg, m.keys.Select):
 		if r := m.selectedResult(); r != nil {
+			realPath, err := qmd.ResolveFilePath(r.File)
+			if err != nil {
+				cmds = append(cmds, sendNotification("Cannot resolve path: "+err.Error()))
+				break
+			}
 			if m.printMode {
-				fmt.Println(r.FilePath)
+				fmt.Println(realPath)
 				return []tea.Cmd{tea.Quit}
 			}
-			cmds = append(cmds, editor.Open(r.FilePath, 0, m.cfg.Editor))
+			cmds = append(cmds, editor.Open(realPath, 0, m.cfg.Editor))
 		}
 
 	// ── Pager ─────────────────────────────────────────────────────────────
 	case keyMatches(msg, m.keys.Pager):
 		if r := m.selectedResult(); r != nil {
-			cmds = append(cmds, editor.OpenPager(r.FilePath))
+			realPath, err := qmd.ResolveFilePath(r.File)
+			if err != nil {
+				cmds = append(cmds, sendNotification("Cannot resolve path: "+err.Error()))
+				break
+			}
+			cmds = append(cmds, editor.OpenPager(realPath))
 		}
 
 	// ── Copy path ─────────────────────────────────────────────────────────
 	case keyMatches(msg, m.keys.CopyPath):
 		if r := m.selectedResult(); r != nil {
-			if err := clipboard.WriteAll(r.FilePath); err == nil {
+			realPath, err := qmd.ResolveFilePath(r.File)
+			if err != nil {
+				realPath = r.File // fall back to qmd:// URI
+			}
+			if err := clipboard.WriteAll(realPath); err == nil {
 				cmds = append(cmds, sendNotification("Copied path"))
 			} else {
 				cmds = append(cmds, sendNotification("Clipboard error"))
@@ -452,23 +467,24 @@ func (m *Model) fetchPreviewForSelected() tea.Cmd {
 	if r == nil {
 		return nil
 	}
-	return m.fetchPreview(r.DocID)
+	return m.fetchPreview(*r)
 }
 
-func (m *Model) fetchPreview(docID string) tea.Cmd {
-	if docID == "" {
+func (m *Model) fetchPreview(r qmd.SearchResult) tea.Cmd {
+	if r.DocID == "" {
 		return nil
 	}
-	m.previewDocID = docID
+	m.previewDocID = r.DocID
 
-	// Cache hit
-	if content, ok := m.previewCache.get(docID); ok {
+	// Cache hit (keyed by docID)
+	if content, ok := m.previewCache.get(r.DocID); ok {
 		m.setPreviewContent(content)
 		return nil
 	}
 
-	// Async fetch
+	// Async fetch via `qmd get #docid`
 	client := m.client
+	docID := r.DocID
 	return func() tea.Msg {
 		content, err := client.GetDocument(docID)
 		return previewLoadedMsg{docID: docID, content: content, err: err}

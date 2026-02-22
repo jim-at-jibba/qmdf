@@ -2,6 +2,29 @@ package editor
 
 import "testing"
 
+func TestGuiWaitFlag(t *testing.T) {
+	cases := []struct {
+		binary   string
+		wantFlag string
+	}{
+		{"code", "--wait"},
+		{"cursor", "--wait"},
+		{"windsurf", "--wait"},
+		{"zed", "--wait"},
+		{"subl", "--wait"},
+		{"vim", ""},
+		{"nvim", ""},
+		{"nano", ""},
+		{"hx", ""},
+	}
+	for _, tc := range cases {
+		got := guiWaitFlag(tc.binary)
+		if got != tc.wantFlag {
+			t.Errorf("guiWaitFlag(%q) = %q, want %q", tc.binary, got, tc.wantFlag)
+		}
+	}
+}
+
 func TestBuildEditorArgs_NoLine(t *testing.T) {
 	args := buildEditorArgs("vim", "/path/to/file.md", 0)
 	if len(args) != 1 || args[0] != "/path/to/file.md" {
