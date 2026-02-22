@@ -37,7 +37,7 @@ type Model struct {
 	keys   KeyMap
 	help   help.Model
 
-	// Input
+	// Input (search)
 	input textinput.Model
 
 	// State
@@ -79,6 +79,25 @@ type Model struct {
 
 	// Modes
 	printMode bool // output path to stdout on Enter, then quit
+
+	// ── Collections view ──────────────────────────────────────────────────
+	activeView ViewMode
+
+	collections       []qmd.CollectionInfo
+	collectionCursor  int
+	collectionContexts []qmd.ContextInfo
+	collectionLoading bool
+	collectionErr     error
+	collectionOutput  string
+
+	// Multi-step input prompt
+	inputMode         CollectionInputMode
+	inputPrompt       string
+	inputField        textinput.Model
+	pendingAddPath    string
+	pendingAddName    string
+	pendingContextPath string
+	pendingRenameName  string
 }
 
 // New creates a new Model with the given config.
@@ -110,6 +129,7 @@ func New(cfg *config.Config, isDark bool) Model {
 		previewCache: newPreviewCache(),
 		printMode:    cfg.PrintMode,
 		isDark:       isDark,
+		inputField:   newInputField(),
 	}
 }
 
@@ -199,6 +219,44 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case clearNotificationMsg:
 		m.notification = ""
 
+	// ── Collections loaded ─────────────────────────────────────────────────
+	case collectionsLoadedMsg:
+		m.collectionLoading = false
+		if msg.err != nil {
+			m.collectionErr = msg.err
+		} else {
+			m.collectionErr = nil
+			m.collections = msg.collections
+			if m.collectionCursor >= len(m.collections) {
+				m.collectionCursor = max(0, len(m.collections)-1)
+			}
+		}
+
+	// ── Collection action completed ────────────────────────────────────────
+	case collectionActionMsg:
+		m.collectionLoading = false
+		if msg.err != nil {
+			m.collectionErr = msg.err
+			m.collectionOutput = msg.err.Error()
+			cmds = append(cmds, sendNotification("Error: "+msg.err.Error()))
+		} else {
+			m.collectionErr = nil
+			out := strings.TrimSpace(msg.output)
+			if out == "" {
+				out = msg.action + " completed"
+			}
+			m.collectionOutput = out
+			cmds = append(cmds, sendNotification(msg.action+" done"))
+			// Reload the collection list after any mutation
+			cmds = append(cmds, m.loadCollections())
+		}
+
+	// ── Contexts loaded ────────────────────────────────────────────────────
+	case contextsLoadedMsg:
+		if msg.err == nil {
+			m.collectionContexts = msg.contexts
+		}
+
 	// ── Keyboard input ─────────────────────────────────────────────────────
 	case tea.KeyMsg:
 		cmds = append(cmds, m.handleKey(msg)...)
@@ -207,19 +265,42 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// handleKey processes a key event and returns any resulting commands.
+// handleKey routes key events to global handlers then per-view handlers.
 func (m *Model) handleKey(msg tea.KeyMsg) []tea.Cmd {
+	// ctrl+c always quits
+	if keyMatches(msg, m.keys.Quit) {
+		return []tea.Cmd{tea.Quit}
+	}
+
+	// Backtick toggles views
+	if keyMatches(msg, m.keys.ToggleView) {
+		return m.toggleView()
+	}
+
+	// Help toggle is global
+	if keyMatches(msg, m.keys.ToggleHelp) {
+		m.showHelp = !m.showHelp
+		m.help.ShowAll = m.showHelp
+		return nil
+	}
+
+	// Delegate to the active view
+	switch m.activeView {
+	case ViewCollections:
+		return m.handleCollectionKey(msg)
+	default:
+		return m.handleSearchKey(msg)
+	}
+}
+
+// handleSearchKey processes key events in the Search view.
+func (m *Model) handleSearchKey(msg tea.KeyMsg) []tea.Cmd {
 	var cmds []tea.Cmd
 
 	switch {
-	// ── Quit ──────────────────────────────────────────────────────────────
-	case keyMatches(msg, m.keys.Quit):
+	// ── Quit on Esc in search view ─────────────────────────────────────────
+	case keyMatches(msg, m.keys.Esc):
 		return []tea.Cmd{tea.Quit}
-
-	// ── Help toggle ───────────────────────────────────────────────────────
-	case keyMatches(msg, m.keys.ToggleHelp):
-		m.showHelp = !m.showHelp
-		m.help.ShowAll = m.showHelp
 
 	// ── Navigation ────────────────────────────────────────────────────────
 	case keyMatches(msg, m.keys.Up):
@@ -335,52 +416,62 @@ func (m Model) View() string {
 		return "Initialising…"
 	}
 
-	// Build the input row
-	prefix := inputPrefixStyle.Render("  ")
-	inputRow := prefix + m.input.View()
+	tabBar := renderTabBar(m.activeView, m.width)
 
-	spinnerStr := ""
-	if m.loading {
-		spinnerStr = " " + m.spinner.View()
-	}
-	inputRow += spinnerStr
+	switch m.activeView {
+	case ViewCollections:
+		body := renderCollectionsView(m)
+		hint := renderCollectionsHintBar(m)
+		return lipgloss.JoinVertical(lipgloss.Left, tabBar, body, hint)
 
-	// Body height: total – input(1) – border(2) – status(1)
-	bodyHeight := m.height - 4
-	if bodyHeight < 1 {
-		bodyHeight = 1
-	}
+	default: // ViewSearch
+		// Build the input row
+		prefix := inputPrefixStyle.Render("  ")
+		inputRow := prefix + m.input.View()
 
-	if m.cfg.NoPreview {
-		// Single-pane mode
-		list := renderResultList(m.results, m.selected, m.width-2, bodyHeight, m.loading, m.lastQuery)
-		leftPane := paneStyle.Width(m.width - 2).Height(bodyHeight).Render(list)
-		status := renderStatusBar(m.mode, m.resultCount, m.elapsedMs, m.loading, m.notification, m.width, m.showHelp, m.shortHint())
+		spinnerStr := ""
+		if m.loading {
+			spinnerStr = " " + m.spinner.View()
+		}
+		inputRow += spinnerStr
+
+		// Body height: total – input(1) – tabBar(1) – border(2) – status(1)
+		bodyHeight := m.height - 5
+		if bodyHeight < 1 {
+			bodyHeight = 1
+		}
+
+		if m.cfg.NoPreview {
+			// Single-pane mode
+			list := renderResultList(m.results, m.selected, m.width-2, bodyHeight, m.loading, m.lastQuery)
+			leftPane := paneStyle.Width(m.width - 2).Height(bodyHeight).Render(list)
+			status := renderStatusBar(m.mode, m.cfg.Collection, m.resultCount, m.elapsedMs, m.loading, m.notification, m.width, m.showHelp, m.shortHint())
+
+			if m.showHelp {
+				helpView := helpStyle.Render(m.help.View(m.keys))
+				return lipgloss.JoinVertical(lipgloss.Left, inputRow, tabBar, leftPane, helpView, status)
+			}
+			return lipgloss.JoinVertical(lipgloss.Left, inputRow, tabBar, leftPane, status)
+		}
+
+		// Two-pane mode
+		listW, previewW := m.paneSizes()
+
+		list := renderResultList(m.results, m.selected, listW, bodyHeight, m.loading, m.lastQuery)
+		leftPane := paneStyle.Width(listW - 2).Height(bodyHeight).Render(list)
+
+		previewContent := m.viewport.View()
+		rightPane := activePaneStyle.Width(previewW - 2).Height(bodyHeight).Render(previewContent)
+
+		body := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightPane)
+		status := renderStatusBar(m.mode, m.cfg.Collection, m.resultCount, m.elapsedMs, m.loading, m.notification, m.width, m.showHelp, m.shortHint())
 
 		if m.showHelp {
 			helpView := helpStyle.Render(m.help.View(m.keys))
-			return lipgloss.JoinVertical(lipgloss.Left, inputRow, leftPane, helpView, status)
+			return lipgloss.JoinVertical(lipgloss.Left, inputRow, tabBar, body, helpView, status)
 		}
-		return lipgloss.JoinVertical(lipgloss.Left, inputRow, leftPane, status)
+		return lipgloss.JoinVertical(lipgloss.Left, inputRow, tabBar, body, status)
 	}
-
-	// Two-pane mode
-	listW, previewW := m.paneSizes()
-
-	list := renderResultList(m.results, m.selected, listW, bodyHeight, m.loading, m.lastQuery)
-	leftPane := paneStyle.Width(listW - 2).Height(bodyHeight).Render(list)
-
-	previewContent := m.viewport.View()
-	rightPane := activePaneStyle.Width(previewW - 2).Height(bodyHeight).Render(previewContent)
-
-	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightPane)
-	status := renderStatusBar(m.mode, m.resultCount, m.elapsedMs, m.loading, m.notification, m.width, m.showHelp, m.shortHint())
-
-	if m.showHelp {
-		helpView := helpStyle.Render(m.help.View(m.keys))
-		return lipgloss.JoinVertical(lipgloss.Left, inputRow, body, helpView, status)
-	}
-	return lipgloss.JoinVertical(lipgloss.Left, inputRow, body, status)
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -394,11 +485,11 @@ func (m Model) selectedResult() *qmd.SearchResult {
 }
 
 func (m *Model) recalculateLayout() Model {
-	if m.cfg.NoPreview {
+	if m.activeView == ViewCollections || m.cfg.NoPreview {
 		return *m
 	}
 	_, previewW := m.paneSizes()
-	bodyHeight := m.height - 4
+	bodyHeight := m.height - 5 // input + tabBar + border(2) + status
 	if bodyHeight < 1 {
 		bodyHeight = 1
 	}
@@ -450,7 +541,7 @@ func (m Model) paneSizes() (listW, previewW int) {
 }
 
 func (m Model) shortHint() string {
-	parts := []string{"↑↓ nav", "enter open", "tab mode", "? help", "^c quit"}
+	parts := []string{"↑↓ nav", "enter open", "tab mode", "` collections", "? help", "^c quit"}
 	return helpStyle.Render(strings.Join(parts, "  "))
 }
 

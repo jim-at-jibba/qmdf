@@ -16,10 +16,29 @@ type KeyMap struct {
 	ToggleHelp key.Binding
 	Pager      key.Binding
 	Quit       key.Binding
+	Esc        key.Binding
 
 	// Preview scroll
 	PreviewUp   key.Binding
 	PreviewDown key.Binding
+
+	// View toggle
+	ToggleView key.Binding
+
+	// Collection navigation (includes k/j for use when no text input is active)
+	CollUp   key.Binding
+	CollDown key.Binding
+
+	// Collection actions
+	CollAdd         key.Binding
+	CollDelete      key.Binding
+	CollRename      key.Binding
+	CollReindex     key.Binding
+	CollReindexPull key.Binding
+	CollEmbed       key.Binding
+	CollEmbedForce  key.Binding
+	CollContext     key.Binding
+	CollContextRm   key.Binding
 }
 
 // DefaultKeyMap returns the default key bindings.
@@ -70,8 +89,12 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("^p", "pager"),
 		),
 		Quit: key.NewBinding(
-			key.WithKeys("ctrl+c", "esc"),
-			key.WithHelp("^c/esc", "quit"),
+			key.WithKeys("ctrl+c"),
+			key.WithHelp("^c", "quit"),
+		),
+		Esc: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "back/quit"),
 		),
 		PreviewUp: key.NewBinding(
 			key.WithKeys("ctrl+u"),
@@ -80,6 +103,54 @@ func DefaultKeyMap() KeyMap {
 		PreviewDown: key.NewBinding(
 			key.WithKeys("ctrl+d"),
 			key.WithHelp("^d", "preview ↓"),
+		),
+		ToggleView: key.NewBinding(
+			key.WithKeys("`"),
+			key.WithHelp("`", "switch view"),
+		),
+		CollUp: key.NewBinding(
+			key.WithKeys("up", "ctrl+k", "k"),
+			key.WithHelp("↑/k", "up"),
+		),
+		CollDown: key.NewBinding(
+			key.WithKeys("down", "ctrl+j", "j"),
+			key.WithHelp("↓/j", "down"),
+		),
+		CollAdd: key.NewBinding(
+			key.WithKeys("a"),
+			key.WithHelp("a", "add collection"),
+		),
+		CollDelete: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "delete"),
+		),
+		CollRename: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "rename"),
+		),
+		CollReindex: key.NewBinding(
+			key.WithKeys("u"),
+			key.WithHelp("u", "reindex"),
+		),
+		CollReindexPull: key.NewBinding(
+			key.WithKeys("U"),
+			key.WithHelp("U", "reindex+pull"),
+		),
+		CollEmbed: key.NewBinding(
+			key.WithKeys("e"),
+			key.WithHelp("e", "embed"),
+		),
+		CollEmbedForce: key.NewBinding(
+			key.WithKeys("E"),
+			key.WithHelp("E", "embed -f"),
+		),
+		CollContext: key.NewBinding(
+			key.WithKeys("c"),
+			key.WithHelp("c", "add context"),
+		),
+		CollContextRm: key.NewBinding(
+			key.WithKeys("x"),
+			key.WithHelp("x", "rm context"),
 		),
 	}
 }
@@ -94,7 +165,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.PageUp, k.PageDown},
 		{k.OpenEditor, k.Pager, k.CopyPath, k.CopyDocID},
-		{k.CycleMode, k.PreviewUp, k.PreviewDown},
+		{k.CycleMode, k.PreviewUp, k.PreviewDown, k.ToggleView},
 		{k.ToggleHelp, k.Quit},
 	}
 }

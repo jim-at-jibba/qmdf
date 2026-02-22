@@ -38,6 +38,18 @@ var (
 	helpStyle          lipgloss.Style
 	notifyStyle        lipgloss.Style
 	errorStyle         lipgloss.Style
+
+	// Tab bar
+	tabActiveStyle   lipgloss.Style
+	tabInactiveStyle lipgloss.Style
+
+	// Collection view
+	collItemStyle     lipgloss.Style
+	collSelectedStyle lipgloss.Style
+	collDetailKeyStyle lipgloss.Style
+	collDetailValStyle lipgloss.Style
+	collPromptStyle   lipgloss.Style
+	collHintStyle     lipgloss.Style
 )
 
 func init() {
@@ -117,6 +129,36 @@ func buildStyles() {
 
 	errorStyle = lipgloss.NewStyle().
 		Foreground(colorError)
+
+	tabActiveStyle = lipgloss.NewStyle().
+		Foreground(colorSelected).
+		Bold(true).
+		Padding(0, 1)
+
+	tabInactiveStyle = lipgloss.NewStyle().
+		Foreground(colorMuted).
+		Padding(0, 1)
+
+	collItemStyle = lipgloss.NewStyle().
+		Foreground(colorPrimary)
+
+	collSelectedStyle = lipgloss.NewStyle().
+		Foreground(colorSelected).
+		Bold(true)
+
+	collDetailKeyStyle = lipgloss.NewStyle().
+		Foreground(colorMuted).
+		Width(10)
+
+	collDetailValStyle = lipgloss.NewStyle().
+		Foreground(colorSecondary)
+
+	collPromptStyle = lipgloss.NewStyle().
+		Foreground(colorWarning).
+		Bold(true)
+
+	collHintStyle = lipgloss.NewStyle().
+		Foreground(colorMuted)
 }
 
 // _ prevents snippetStyle from being flagged as unused during linting.

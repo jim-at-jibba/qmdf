@@ -8,9 +8,10 @@ import (
 	"github.com/jamesguthriebest/qmdf/internal/qmd"
 )
 
-// renderStatusBar renders the single-line status bar at the bottom.
+// renderStatusBar renders the single-line status bar at the bottom of the Search view.
 func renderStatusBar(
 	mode qmd.Mode,
+	collection string,
 	resultCount int,
 	elapsedMs int64,
 	loading bool,
@@ -19,11 +20,16 @@ func renderStatusBar(
 	showHelp bool,
 	keyhint string,
 ) string {
-	// Left: mode badge + result count
+	// Left: mode badge + optional collection name + result count
 	badge := modeBadgeStyle.
 		Foreground(lipgloss.Color("#1a1a2e")).
 		Background(modeBadgeColor(mode)).
 		Render(modeLabel(mode))
+
+	collStr := ""
+	if collection != "" {
+		collStr = statusBarStyle.Render(" [" + collection + "]")
+	}
 
 	var countStr string
 	if loading {
@@ -36,7 +42,7 @@ func renderStatusBar(
 		countStr = statusBarStyle.Render(fmt.Sprintf(" %d results%s", resultCount, elapsed))
 	}
 
-	left := badge + countStr
+	left := badge + collStr + countStr
 
 	// Right: notification or key hint
 	var right string
