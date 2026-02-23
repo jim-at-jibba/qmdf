@@ -79,7 +79,11 @@ func renderSearchInfoBox(m Model, width int) string {
 
 	// Title row: "qmdf ──────── v<version>"
 	label := collLogTitleStyle.Render("qmdf")
-	ver := collHintStyle.Render("v" + m.version)
+	verStr := m.version
+	if !strings.HasPrefix(verStr, "v") {
+		verStr = "v" + verStr
+	}
+	ver := collHintStyle.Render(verStr)
 	labelW := lipgloss.Width(label)
 	verW := lipgloss.Width(ver)
 	sepLen := innerW - labelW - verW - 2

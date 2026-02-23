@@ -5,6 +5,8 @@
 
 A fast, keyboard-driven TUI for searching and managing [qmd](https://github.com/tobilu/qmd) Markdown collections. Wraps the `qmd` CLI with an interactive two-pane interface: live search results on the left, rendered Markdown preview on the right.
 
+![qmdf demo](https://github.com/user-attachments/assets/9c34f8a7-4a4c-48e2-aada-94b47cc544ab)
+
 - Single static binary, no runtime dependencies
 - Sub-10ms startup
 - Three search modes: full-text, vector/semantic, LLM-reranked
