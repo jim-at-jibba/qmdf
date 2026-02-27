@@ -12,7 +12,11 @@
       "Bash(asdf plugin:*)",
       "Bash(go get:*)",
       "Bash(sqlite3:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(qmd:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh api:*)",
+      "Bash(gh repo:*)"
     ]
   }
 }
